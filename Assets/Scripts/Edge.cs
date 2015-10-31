@@ -11,13 +11,11 @@ public class Edge : MonoBehaviour {
 	public static int colorFactor;
 	public static float avLen;
 	public static Material edgeMat;
-	public static int mode;
 
 	public Node n1;
 	public Node n2;
 
 	public Transform t;
-	public Renderer r;
 	public LineRenderer lr;
 	Material m;
 	Vector3 dir;
@@ -46,36 +44,20 @@ public class Edge : MonoBehaviour {
 		if(!n1.simulating || !n2.simulating)
 		{
 			t.localPosition = Vector3.right*99999;
-			if(mode==1) lr.enabled = false;
-			if(mode==0) r.enabled = false;
+			lr.enabled = false;
 			return 0;
 		}else
 		{
-			if(mode==1) lr.enabled = true;
-			if(mode==0) r.enabled = true;
+			lr.enabled = true;
 		}
 
 		dir = n1.t.localPosition - n2.t.localPosition;
 		float mag = dir.magnitude;
-		if(mode==0)		//Classic box renderer
-		{
-			t.localScale = new Vector3(dir.magnitude,.08f,.08f);
-			t.localPosition = (n1.t.localPosition+n2.t.localPosition)/2f;
-			t.rotation = Quaternion.identity;
-			t.localEulerAngles = GetEulerAnglesQ(dir);
-			if(r==null) r=this.GetComponent<MeshRenderer>();
-			if(m==null) m=r.material;
+		lr.SetPosition(0,n1.t.position);
+		lr.SetPosition(1,n2.t.position);
 
-			Color col = g.Evaluate(mag/(avLen*colorFactor));
-			m.SetColor("_Color", col);
-		}else if(mode==1)
-		{
-			lr.SetPosition(0,n1.t.position);
-			lr.SetPosition(1,n2.t.position);
-
-			Color col = g.Evaluate(mag/(avLen*colorFactor));
-			lr.SetColors(col,col);
-		}
+		Color col = g.Evaluate(mag/(avLen*colorFactor));
+		lr.SetColors(col,col);
 
 		return mag;
 	}

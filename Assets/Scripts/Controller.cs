@@ -18,7 +18,6 @@ public class Controller : MonoBehaviour {
 	public float dt;
 	public int colorFactor;
 	public int initialPositionStyle;
-	public int edgeMode;
 	public bool simplify;
 	public float nodeFScale;
 	public float scrollFactor;
@@ -45,7 +44,6 @@ public class Controller : MonoBehaviour {
 		Edge.idealLen = iLen;
 		Edge.idealLen2 = Edge.idealLen*Edge.idealLen;
 		Edge.avLen = iLen;
-		Edge.mode = edgeMode;
 		Node.forceScale = 2;
 
 		//Create color gradient for the edges
@@ -223,7 +221,7 @@ public class Controller : MonoBehaviour {
 			}
 		}
 
-		Debug.Log("Loaded "+nodes.Count+" nodes and "+edges.Count+" edges\n"+identityCount+" edges ignored");
+		Debug.Log("Loaded "+nodes.Count+" nodes and "+edges.Count+" edges\n"+identityCount+" edges ignored (edges to self)");
 
 		if(simplify) yield return StartCoroutine(SimplifyGraph());
 
