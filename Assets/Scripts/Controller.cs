@@ -40,7 +40,7 @@ public class Controller : MonoBehaviour {
 
 	//For slowing down the simulation, and ending it
 	//The time is in real time, using Time.deltaTime
-	float timeUntilCheck;
+	public float timeUntilCheck;
 	bool historyCheck;	//true on "frame" we should check
 
 	// Initialization
@@ -79,7 +79,7 @@ public class Controller : MonoBehaviour {
 
 	void Update () {
 		float scroll = Input.mouseScrollDelta.y*scrollFactor;
-		cam.orthographicSize = Mathf.Clamp(cam.orthographicSize-scroll,2.5f,1000f);
+		cam.fieldOfView = Mathf.Clamp(cam.fieldOfView+scroll,2.5f,1000f);
 
 		if(Input.GetKeyDown(KeyCode.Space)){
 			if(!upNodes){
@@ -102,8 +102,11 @@ public class Controller : MonoBehaviour {
 		}
 
 		if(simulating){
-			timeUntilCheck -= Time.deltaTime;
-			if(timeUntilCheck<=0) historyCheck = true;
+			if(upNodes)
+			{
+				timeUntilCheck -= Time.deltaTime;
+				if(timeUntilCheck<=0) historyCheck = true;
+			}
 
 			Node.forceScale=nodeFScale;
 			Edge.colorFactor = colorFactor;
@@ -234,12 +237,12 @@ public class Controller : MonoBehaviour {
 
 		//if(edges.Count>1000) Time.timeScale=.2f;
 		simulating=true;
+		timeUntilCheck = 8;
 		StartCoroutine(updateNodes());
 
 		yield return new WaitForSeconds(1);
 
 		if(!upNodes) upNodes=true;
-		timeUntilCheck = 1;
 
 		yield break;
 	}
@@ -482,7 +485,8 @@ public class Controller : MonoBehaviour {
 				//If its below a threshhold, slow down, and if simplified, un-simplify
 				//Reset timeuntil and history check
 				dif/=difCount+0f;
-				if(dif.magnitude<.1f)
+				Debug.Log(dif.magnitude);
+				if(dif.magnitude<.05f*dt)
 				{
 					if(dt<.01f)
 					{
@@ -490,14 +494,15 @@ public class Controller : MonoBehaviour {
 						timeUntilCheck = 10;
 					}else
 					{
-						dt*=.5f;
-						if(simplified)
+
+						if(simplify)
 						{
 							simplify = false;
 							StartCoroutine(Unsimplify());
 							timeUntilCheck = 8;
 						}else
 						{
+							dt*=.5f;
 							timeUntilCheck = 3;
 						}
 					}
