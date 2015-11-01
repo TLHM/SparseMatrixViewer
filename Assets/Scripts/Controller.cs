@@ -38,6 +38,10 @@ public class Controller : MonoBehaviour {
 	int frames;
 	public UnityEngine.UI.Text FPS;
 
+	//For slowing down the simulation, and ending it
+	//The time is in real time, using Time.deltaTime
+	float timeUntilCheck;
+	bool historyCheck;	//true on "frame" we should check
 
 	// Initialization
 	void Start () {
@@ -98,6 +102,9 @@ public class Controller : MonoBehaviour {
 		}
 
 		if(simulating){
+			timeUntilCheck -= Time.deltaTime;
+			if(timeUntilCheck<=0) historyCheck = true;
+
 			Node.forceScale=nodeFScale;
 			Edge.colorFactor = colorFactor;
 			Shader.SetGlobalFloat("_Density",fogDensity);
@@ -231,7 +238,8 @@ public class Controller : MonoBehaviour {
 
 		yield return new WaitForSeconds(1);
 
-		//if(!upNodes) upNodes=true;
+		if(!upNodes) upNodes=true;
+		timeUntilCheck = 1;
 
 		yield break;
 	}
@@ -447,12 +455,58 @@ public class Controller : MonoBehaviour {
 				}
 				n.ApplyForce(dt);
 			}
-
+			Vector3 dif = Vector3.zero;
+			int difCount=0;
 			for(int i=0;i<nodes.Count;i++){
 				nodes[i].UpdatePos();
+				if(historyCheck && nodes[i].simulating)
+				{
+					dif+=nodes[i].difFromHistory();
+					nodes[i].recordHistory();
+					difCount++;
+				}
 			}
 			for(int i=0;i<megas.Count;i++){
 				megas[i].UpdatePos();
+				if(historyCheck && megas[i].simulating)
+				{
+					dif+=nodes[i].difFromHistory();
+					nodes[i].recordHistory();
+					difCount++;
+				}
+			}
+			//Results of history check
+			if(historyCheck)
+			{
+				//Check the average change in position from a while back
+				//If its below a threshhold, slow down, and if simplified, un-simplify
+				//Reset timeuntil and history check
+				dif/=difCount+0f;
+				if(dif.magnitude<.1f)
+				{
+					if(dt<.01f)
+					{
+						upNodes=false;
+						timeUntilCheck = 10;
+					}else
+					{
+						dt*=.5f;
+						if(simplified)
+						{
+							simplify = false;
+							StartCoroutine(Unsimplify());
+							timeUntilCheck = 8;
+						}else
+						{
+							timeUntilCheck = 3;
+						}
+					}
+				}else
+				{
+					timeUntilCheck = 4;
+				}
+
+				historyCheck = false;
 			}
 
 			yield return null;

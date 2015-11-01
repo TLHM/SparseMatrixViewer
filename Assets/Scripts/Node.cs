@@ -20,6 +20,9 @@ public class Node : MonoBehaviour {
 	Vector3 velocity;
 	Vector3 last;
 
+	//Used to estimate slowing down time, ending simulation
+	Vector3 history;
+
 	//Calculates a repulsion force from another node
 	public Vector3 CalcRepulse(Node n){
 		Vector3 dir = t.localPosition-n.t.localPosition;
@@ -69,5 +72,15 @@ public class Node : MonoBehaviour {
 
 	public void clearVel(){
 		velocity.Set(0,0,0);
+	}
+
+	/**Saves current local position as history */
+	public void recordHistory(){
+		history = t.localPosition;
+	}
+
+	/**Returns the difference between history position and current posisiton (local) */
+	public Vector3 difFromHistory(){
+		return t.localPosition - history;
 	}
 }
