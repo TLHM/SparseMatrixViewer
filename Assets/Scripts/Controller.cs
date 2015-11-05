@@ -3,54 +3,67 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 
+/**
+	@class Controller is essentailly the main functino of the program. It loads data and updates the
+	simulation.
+
+*/
 public class Controller : MonoBehaviour {
-	public Transform container;
-	public Camera cam;
-	public Transform nodeFab;
-	public Transform edgeFab;
-	public Transform megaNodeFab;
+	public Transform container;	/**< Transform that houses our graph*/
+	public Camera cam;				/**< The main camera */
+	public Transform nodeFab;		/**< Transform that is the generic node */
+	public Transform edgeFab;		/**< Transform that is the generic edge */
+	public Transform megaNodeFab;	/**< Transform that is the generic mega node */
 
-	public List<Node> nodes;
-	public List<Edge> edges;
-	public List<MegaNode> megas;
+	public List<Node> nodes;		/**< Keeps track of all our normal nodes */
+	public List<Edge> edges;		/**< Keeps track of all our edges */
+	public List<MegaNode> megas;	/**< Keeps track of all our mega nodes */
 
-	public string file;
-	public float dt;
-	public int colorFactor;
-	public int initialPositionStyle;
-	public bool simplify;
-	public float nodeFScale;
-	public float scrollFactor;
-	public float fogDensity;
+	public string file;				/**< File name of the .mtx file in the Assets/Matrices folder we want. EG "qh882"*/
+	public float dt;					/**< Delta Time variable. Should being at around 1, and will automatically be reduced as the simulation continues. */
+	public int colorFactor;			/**< Multiplier that affects how the colors are maped to the gradient. Recommended value of 3 */
+	public int initialPositionStyle;	/**< Defines distrubution of the nodes when first created. 0 = position in matrix, 1 = square, 2 = cube, 3 = randomized sphere */
+	public bool simplify;			/**< If true, the graph is simplified before beginning simulation. It will unsimplify during the simulation */
+	public float nodeFScale;		/**< Value that determines Node.forceScale during simulation. You can change it through the inspector during a simulation */
+	public float scrollFactor;		/**< Value that determines how quickly you zoom in and out using the mouse scroll. */
+	public float fogDensity;		/**< Value controls how the fog that affects objects further away. */
 
-	public int pauseCount; //How many edges do we process before pausing for the frame?
-	public float iLen;	//Our ideal length of edges
+	public int pauseCount; 			/**< How many edges do we process before pausing for the frame? */
+	public float iLen;				/**< Our ideal length of edges. Should be set before running the scene, rather than during. */
 
-	public bool simulating;
-	bool upNodes;
-	public Gradient gg;
+	public bool simulating;			/**< Are we updating edges? Should almost always be true. */
+	bool upNodes;						/**< Are we simulating physics on nodes right now? */
+	public Gradient gg;				/**< Gradient that determines color of edges, based on length and the colorFactor. */
 
 	//For background
-	public Color[] bgCols;
+	public Color[] bgCols;			/**< Should hold two colors, to determine the clear color [0], background cloud color [1], and fog color [1] Set before runtime*/
+	public Material bgMat;			/**< Material pointer for background clouds */
+	public Material edgeMat;		/**< Material pointer for edges */
 
 	//For the FPS counter
 	float acum, timeLeft, avTime;
 	int frames;
 	public UnityEngine.UI.Text FPS;
 
-	//For slowing down the simulation, and ending it
-	//The time is in real time, using Time.deltaTime
-	public float timeUntilCheck;
-	bool historyCheck;	//true on "frame" we should check
+	/**
+		For slowing down the simulation, and ending it
+		The frame count is for ticks of the updateNodes coroutine
+	*/
+	public int framesUntilCheck;
+	int framesPerCheck;
 
 	// Initialization
 	void Start () {
+		//Initialize length variables for Edges
 		Edge.idealLen = iLen;
 		Edge.idealLen2 = Edge.idealLen*Edge.idealLen;
 		Edge.avLen = iLen;
+		//Initialize the forceScale for nodes
 		Node.forceScale = 2;
 
 		//Create color gradient for the edges
+		//Commented out gradient was creted in code
+		//Currently, you should just set it using the inspector in the Unity Editor
 		Edge.g = gg;//new Gradient();
 		/*GradientColorKey[] cols = new GradientColorKey[4];
 		cols[0].color = Color.red;
@@ -77,10 +90,18 @@ public class Controller : MonoBehaviour {
 		StartCoroutine(Load());
 	}
 
+	/** Processes some input
+		Updates edges if simulating
+		Sets some static variables (Force Scale, Color Factor, Fog Density)
+		Calculate and displays Framerate
+	*/
 	void Update () {
+		//Zoom the camera in/out
 		float scroll = Input.mouseScrollDelta.y*scrollFactor;
-		cam.fieldOfView = Mathf.Clamp(cam.fieldOfView+scroll,2.5f,1000f);
+		//cam.fieldOfView = Mathf.Clamp(cam.fieldOfView-scroll,2.5f,1000f);
+		cam.orthographicSize = Mathf.Clamp(cam.orthographicSize-scroll,2.5f,88f);
 
+		//Pause and resume updating of nodes (simulating physics on them)
 		if(Input.GetKeyDown(KeyCode.Space)){
 			if(!upNodes){
 				upNodes=true;
@@ -92,6 +113,7 @@ public class Controller : MonoBehaviour {
 			}
 		}
 
+		//Can manually unsimplify. Not recommended
 		if(Input.GetKeyDown(KeyCode.S))
 		{
 			if(upNodes && simplify)
@@ -102,15 +124,12 @@ public class Controller : MonoBehaviour {
 		}
 
 		if(simulating){
-			if(upNodes)
-			{
-				timeUntilCheck -= Time.deltaTime;
-				if(timeUntilCheck<=0) historyCheck = true;
-			}
-
+			//Set staic variables, so we can modify them through the inspector while running
 			Node.forceScale=nodeFScale;
 			Edge.colorFactor = colorFactor;
 			Shader.SetGlobalFloat("_Density",fogDensity);
+
+			//Update edges, and calculate the average edge length (which dictates coloring)
 			float totalDist=0;
 			int relevantEdgeCount=0;
 			for(int i=0;i<edges.Count;i++){
@@ -124,6 +143,7 @@ public class Controller : MonoBehaviour {
 			Edge.avLen = totalDist/relevantEdgeCount;
 		}
 
+		//Calculates & displays the framerate and average frame time
 		timeLeft -= Time.deltaTime;
 		acum+=Time.deltaTime;
 		frames++;
@@ -136,8 +156,19 @@ public class Controller : MonoBehaviour {
 		}
 	}
 
+	/**
+		Loads in the data from our .mtx file (see "file" variable)
+		Creates nodes and edges according to the data, and arranges them according to initialPositionStyle
+		Simplifies the graph is simplify is true
+		Begins the simulation
+	*/
 	IEnumerator Load(){
-		//Read in our example file
+		//Set some BG color stuff before we begin
+		cam.backgroundColor = bgCols[0];
+		bgMat.SetColor("_Color",bgCols[1]);
+		edgeMat.SetColor("_FogColor", bgCols[1]);
+
+		//Read in our data file
 		string path = Application.dataPath+"/Matrices/"+file+".mtx";
 		string data = File.ReadAllText(path);
 		//Split it into lines
@@ -186,7 +217,7 @@ public class Controller : MonoBehaviour {
 			}
 
 			//Create an edge between mi and mj
-			//This file doesn't contain duplicates, so no worries there
+			//This file should't contain duplicates, so no check
 			CreateEdge(n[mi],n[mj]);
 
 			if(i%pauseCount==0) yield return null;
@@ -195,15 +226,17 @@ public class Controller : MonoBehaviour {
 
 		yield return null;
 
+		//Arrange our nodes if relevant
+		//Are by default in positions corresponding to where they were first encountered in the matrix
 		if(initialPositionStyle==1){
-			//Square
+			//Square - 2D according to order of node creation
 			int dim = (int)Mathf.Pow(nodes.Count,1/3f);
 			float dx = .5f;
 			for(int j=0;j<nodes.Count;j++){
 				nodes[j].t.position = new Vector3(-dim*dx*.5f + (j%dim)*dx, -dim*dx*.5f+((j/dim)%dim)*dx,-dim*dx*.5f+((j/(dim*dim))%dim)*dx);
 			}
 		}else if(initialPositionStyle==2){
-			//Cube
+			//Cube - Like square, but 3D
 			int dim = (int) Mathf.Sqrt(nodes.Count);
 			float dx = .5f;
 			for(int j=0;j<nodes.Count;j++){
@@ -211,13 +244,14 @@ public class Controller : MonoBehaviour {
 			}
 		}else if(initialPositionStyle==3)
 		{
-			//Sphere
+			//Sphere	- randomized positions in a sphereical shape
 			for(int j=0;j<nodes.Count;j++){
 				nodes[j].t.position = Random.onUnitSphere*Random.Range(.25f,1f);
 			}
 		}else if(initialPositionStyle==0)
 		{
-			//Center all them nodes
+			//Default - Matrix positions
+			//Center the nodes in the screen
 			Vector3 avPos=Vector3.zero;
 			for(int j=0;j<nodes.Count;j++)
 			{
@@ -233,23 +267,28 @@ public class Controller : MonoBehaviour {
 
 		Debug.Log("Loaded "+nodes.Count+" nodes and "+edges.Count+" edges\n"+identityCount+" edges ignored (edges to self)");
 
+		//If we're simplifing, do it here
 		if(simplify) yield return StartCoroutine(SimplifyGraph());
 
-		//if(edges.Count>1000) Time.timeScale=.2f;
+		//Prepare to simulate
 		simulating=true;
-		timeUntilCheck = 8;
+		framesUntilCheck = 50;
+		framesPerCheck = 50;
 		StartCoroutine(updateNodes());
 
-		yield return new WaitForSeconds(1);
+		yield return new WaitForSeconds(.5f);
 
+		//Flip the bool if we haven't and begin the actual simulating
 		if(!upNodes) upNodes=true;
 
 		yield break;
 	}
 
-	///Uses the idea of CNG ( http://hcil2.cs.umd.edu/newvarepository/VAST%20Challenge%202012/challenges/MC2%20-%20Bank%20of%20Money%20regional%20Network%20Op/entries/Institute%20of%20Software%20Chinese%20Academy%20of%20Sciences/CNG_report_20120331.pdf)
-	///Simplifies clusters of nodes into Mega Nodes, making the physics simulation simpler
-	///Later, Mega Nodes will be individually decompressed to get the full graph, if desired
+	/**
+		Uses the idea of CNG ( http://hcil2.cs.umd.edu/newvarepository/VAST%20Challenge%202012/challenges/MC2%20-%20Bank%20of%20Money%20regional%20Network%20Op/entries/Institute%20of%20Software%20Chinese%20Academy%20of%20Sciences/CNG_report_20120331.pdf)
+		Simplifies clusters of nodes into Mega Nodes, making the physics simulation simpler
+		Later, Mega Nodes will be decompressed to get the full graph
+	*/
 	IEnumerator SimplifyGraph()
 	{
 		megas = new List<MegaNode>();
@@ -329,9 +368,11 @@ public class Controller : MonoBehaviour {
 			}
 		}
 
-		//Loop through all MegaNodes
-		//Set their edges, and save them in our edges list
-		//set them to simulating (and disable their constituents)
+		/*
+			Loop through all MegaNodes
+			Set their edges, and save them in our edges list
+			set them to simulating (and disable their constituents)
+		*/
 		for(int i=0; i<megas.Count; i++)
 		{
 			//Which nodes to create edges with?
@@ -357,19 +398,30 @@ public class Controller : MonoBehaviour {
 	}
 
 
-	///As the name implies, updates the nodes over several frames, if needed.
-	///Edges are updated each frame in Update()
+	/**
+		As the name implies, updates the nodes with a simple physics simulation
+		Takes several frames, if needed.
+		Edges are updated each real frame in Update()
+	*/
 	IEnumerator updateNodes(){
 		while(simulating){
+			//If we shouldn't be updating nodes, keep spinning
 			if(!upNodes){
 				yield return null;
 				continue;
 			}
+
+			//Prep some variables
 			Node n;
-			int count = 0;
-			int frameLimit = 50000;
+			int count = 0;	//How many nodes we updated
+			int frameLimit = 50000;	//How many nodes we update before we should wait for the next frame
+
+			framesUntilCheck--;
+
+			//Calculate the force each node is feeling
 			for(int i=0;i<nodes.Count;i++){
 				n=nodes[i];
+				//Make sure this node is active (not part of a mega node)
 				if(!n.simulating) continue;
 
 				Vector3 repulse;
@@ -401,14 +453,12 @@ public class Controller : MonoBehaviour {
 						yield return null;
 					}
 				}
-				//Debug.Log("Repulsive for for node"+n.id+" is "+n.force);
+				//Get force from edges
 				Vector3 edgeF;
 				for(int j=0;j<n.edges.Count;j++){
-					//Should also apply edge force to both here - future improvement
+					//Could also apply edge force to both here - future improvement
 					edgeF = n.edges[j].GetForce(n);
-					//if(edgeF.sqrMagnitude>10000) Debug.Log("wutE "+edgeF);
 					n.force+=edgeF;
-					//Debug.Log("Edge force for node"+n.id+":"+edgeF);
 
 					count++;
 
@@ -420,10 +470,11 @@ public class Controller : MonoBehaviour {
 				n.ApplyForce(dt);
 			}
 
-			//Process Mega Nodes Edges and inter repulsion
+			//Process Mega Nodes Edges and mega-mega repulsion
 			for(int i=0; i<megas.Count; i++)
 			{
 				n=megas[i];
+				//Make sure this mega is not decompressed
 				if(!n.simulating) continue;
 
 				Vector3 repulse;
@@ -443,11 +494,9 @@ public class Controller : MonoBehaviour {
 				//Debug.Log("Repulsive for for node"+n.id+" is "+n.force);
 				Vector3 edgeF;
 				for(int j=0;j<n.edges.Count;j++){
-					//Should also apply edge force to both here - future improvement
+					//Could also apply edge force to both here - future improvement
 					edgeF = n.edges[j].GetForce(n);
-					//if(edgeF.sqrMagnitude>10000) Debug.Log("wutE "+edgeF);
 					n.force+=edgeF;
-					//Debug.Log("Edge force for node"+n.id+":"+edgeF);
 
 					count++;
 
@@ -458,20 +507,25 @@ public class Controller : MonoBehaviour {
 				}
 				n.ApplyForce(dt);
 			}
+
+			//Actually apply the forces
+			//If we're checking the positions to see wether to slow/end the simulation, do so
 			Vector3 dif = Vector3.zero;
 			int difCount=0;
+			//Process regular nodes
 			for(int i=0;i<nodes.Count;i++){
 				nodes[i].UpdatePos();
-				if(historyCheck && nodes[i].simulating)
+				if(framesUntilCheck<0 && nodes[i].simulating)
 				{
 					dif+=nodes[i].difFromHistory();
 					nodes[i].recordHistory();
 					difCount++;
 				}
 			}
+			//Process mega nodes
 			for(int i=0;i<megas.Count;i++){
 				megas[i].UpdatePos();
-				if(historyCheck && megas[i].simulating)
+				if(framesUntilCheck<0 && megas[i].simulating)
 				{
 					dif+=nodes[i].difFromHistory();
 					nodes[i].recordHistory();
@@ -479,7 +533,7 @@ public class Controller : MonoBehaviour {
 				}
 			}
 			//Results of history check
-			if(historyCheck)
+			if(framesUntilCheck<0)
 			{
 				//Check the average change in position from a while back
 				//If its below a threshhold, slow down, and if simplified, un-simplify
@@ -491,7 +545,7 @@ public class Controller : MonoBehaviour {
 					if(dt<.01f)
 					{
 						upNodes=false;
-						timeUntilCheck = 10;
+						framesUntilCheck = 50;
 					}else
 					{
 
@@ -499,37 +553,43 @@ public class Controller : MonoBehaviour {
 						{
 							simplify = false;
 							StartCoroutine(Unsimplify());
-							timeUntilCheck = 8;
+							framesUntilCheck = 150;
+							framesPerCheck -= 10;
 						}else
 						{
 							dt*=.5f;
-							timeUntilCheck = 3;
+							framesUntilCheck = 100;
+							framesPerCheck -= 10;
 						}
 					}
 				}else
 				{
-					timeUntilCheck = 4;
+					framesUntilCheck = framesPerCheck;
 				}
-
-				historyCheck = false;
 			}
 
 			yield return null;
 		}
 	}
 
-	/**Unsimplifies graph
-	just calls StopSim() on mega nodes over time
+	/**
+		Unsimplifies graph
+		just calls StopSim() on  active mega nodes over time
 	*/
 	IEnumerator Unsimplify(){
 		for(int i=0;i<megas.Count;i++)
 		{
 			megas[i].StopSim();
-			if(i%3==0) yield return new WaitForSeconds(.1f);
+			if(i%5==0) yield return new WaitForSeconds(.1f);
 		}
 		yield break;
 	}
 
+	/**
+		Creates an Edge object, connects it to nodes, and pushes it to edges
+		@param n1 First node this edge should connect to. Can be a Mega.
+		@param n2 Second node this edge should connect to. Can be a Mega.
+	*/
 	void CreateEdge(Node n1, Node n2){
 		Edge e = (Instantiate(edgeFab) as Transform).GetComponent<Edge>();
 		e.n1=n1;
@@ -541,8 +601,11 @@ public class Controller : MonoBehaviour {
 		edges.Add(e);
 	}
 
-	//id is the row/col number from the file
-	//Pos also determined on location in the matrix
+	/**
+		Creates a Node object, initializes some properites, and pushes it to nodes
+		@param id the row/column number from the matrix file
+		@param pos Position determined from location in the matrix
+	*/
 	Node CreateNode(int id, Vector2 pos){
 		Node n = (Instantiate(nodeFab) as Transform).GetComponent<Node>();
 		n.t.position = pos*.005f;//Random.onUnitSphere*Random.Range(.25f,1f);//Vector3.right*(id%24)*.1f+Vector3.up*(4-id/24)*.1f;
@@ -555,7 +618,11 @@ public class Controller : MonoBehaviour {
 		return n;
 	}
 
-	//Passed in id is the index in the mega node collection
+	/**
+		Creates a mega node. It gets pushed into a list elsewhere.
+		Initializes some properties
+		@param id The index it will inhabit in the megas list
+	*/
 	MegaNode CreateMegaNode(int id)
 	{
 		MegaNode n = (Instantiate(megaNodeFab) as Transform).GetComponent<MegaNode>();
