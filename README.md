@@ -4,8 +4,7 @@ Built and tested using Unity 5.1.1f1
 
 This project is meant to be run in the Unity Editor, though a compiled version may be created in the future.
 
-Currently, the only supported file type is .mtx
-Matrices are also assumed to be symmetrical and to not contain duplicate edges.
+Currently, the only supported file type is .mtx, and matrices are assumed to be symmetrical and without duplicate edges.
 
 # Usage
 
