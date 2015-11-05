@@ -53,9 +53,13 @@
 
 		//fragment function
 		float4 frag(v2f i) : COLOR {
+			//Get uv relative to center of the image
 			fixed2 tex = i.tex.xy - .5;
+			//Offset by texture offset
 			tex+=_MainTex_ST.zw;
+			//Calculate polar coordinates
 			fixed2 newUV = fixed2( atan2(tex.y,tex.x)/(pi*2), length(tex));
+			//Apply polar offset and get color
 			fixed4 texColor = (fixed4) tex2D( _MainTex, newUV+_P_Offset.xy);
 			return texColor*_Color;
 		}

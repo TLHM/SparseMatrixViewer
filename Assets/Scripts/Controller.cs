@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 
 /**
-	@class Controller is essentailly the main functino of the program. It loads data and updates the
+	Controller is essentailly the main function of the program. It loads data and updates the
 	simulation.
 
 */
@@ -558,7 +558,7 @@ public class Controller : MonoBehaviour {
 						}else
 						{
 							dt*=.5f;
-							framesUntilCheck = 100;
+							framesUntilCheck = 50;
 							framesPerCheck -= 10;
 						}
 					}
