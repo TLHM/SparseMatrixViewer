@@ -25,3 +25,4 @@ Documentation is found in Docs/ but only covers public members and methods.
 # Future work
 
 - Output finished graph structures that can be viewed again at a later time.
+- Add Graphical indicators of loading and simplifying process.

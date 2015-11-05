@@ -185,6 +185,8 @@ public class Controller : MonoBehaviour {
 		Vector3 posOffset = new Vector3(-.5f,-.5f,0)*colCount;
 		int identityCount=0;	//Tracks number of i==i edges
 
+		Debug.Log("Beginning read. Column count is "+colCount);
+
 		//Increment to the real data
 		i++;
 		//Create an array to keep track of the nodes we create, to avoid duplicates
@@ -220,7 +222,11 @@ public class Controller : MonoBehaviour {
 			//This file should't contain duplicates, so no check
 			CreateEdge(n[mi],n[mj]);
 
-			if(i%pauseCount==0) yield return null;
+			if(i%pauseCount==0)
+			{
+				Debug.Log(i/(lines.Length+0f));
+				yield return null;
+			}
 			//if(i>200) break;
 		}
 
@@ -295,6 +301,7 @@ public class Controller : MonoBehaviour {
 		Node n1, n2;
 		List<int> addedNodeIDs = new List<int>();
 		List<int> addedNodeMegas = new List<int>();
+		int calcCount=0;
 
 		//O(log2n) loop through all nodes
 		//Compare their neighbors, via edges
@@ -364,6 +371,12 @@ public class Controller : MonoBehaviour {
 							}
 						}
 					}
+				}
+				calcCount++;
+				if(calcCount%5000==0)
+				{
+					Debug.Log(i/(nodes.Count+0f));
+					yield return null;
 				}
 			}
 		}
