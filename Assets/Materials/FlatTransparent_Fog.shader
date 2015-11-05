@@ -14,7 +14,7 @@
 		}
 
 		Cull Back
-		Blend SrcAlpha One
+		Blend SrcAlpha OneMinusSrcAlpha
 		Zwrite Off
 
 		CGPROGRAM
