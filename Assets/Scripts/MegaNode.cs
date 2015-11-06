@@ -64,6 +64,7 @@ public class MegaNode : Node
 		relativePos.Add(n.t.localPosition - t.localPosition);
 
 		mass++;
+		mass = Mathf.Min(mass, 3);	//Cap mass, should make the mega sims more stable
 		containedIDs.Add(n.id);
 		n.simulating = false;
 		n.megaID = index;

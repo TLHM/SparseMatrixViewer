@@ -18,10 +18,15 @@ Hitting SpaceBar will stop and resume the simulation.
 
 Manual setting of the time step is recommended for many matrices, done through the unity inspector. Simply change the "dt" variable on the Controller object.
 
-# Known Issues
+# Methodology
 
-- Simplification sometimes freezes.
-- It's quite slow.
+Graphs structure is determined by two simple rules:
+
+Nodes repel each other.
+
+Edges draw both nodes towards each other.
+
+The simplification algorithm is also fairly straight-forward. The basic idea is that mega nodes are created by grouping nodes with similar or identical neighbors (nodes that they are connected to via edges).
 
 # Details
 
@@ -29,6 +34,12 @@ For detailed information on function, check the script files.
 
 Documentation is found in Docs/ but only covers public members and methods.
 
+# Known Issues
+
+- Simplification sometimes freezes.
+
 # Future work
 
 - Output finished graph structures that can be viewed again at a later time.
+- Add Graphical indicators of loading and simplifying process.
+- Improvements to speed

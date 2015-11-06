@@ -32,7 +32,7 @@ public class Controller : MonoBehaviour {
 	public float iLen;				/**< Our ideal length of edges. Should be set before running the scene, rather than during. */
 
 	public bool simulating;			/**< Are we updating edges? Should almost always be true. */
-	bool upNodes;						/**< Are we simulating physics on nodes right now? */
+	public bool upNodes;				/**< Are we simulating physics on nodes right now? */
 	public Gradient gg;				/**< Gradient that determines color of edges, based on length and the colorFactor. */
 
 	//For background
@@ -185,6 +185,8 @@ public class Controller : MonoBehaviour {
 		Vector3 posOffset = new Vector3(-.5f,-.5f,0)*colCount;
 		int identityCount=0;	//Tracks number of i==i edges
 
+		Debug.Log("Beginning read. Column count is "+colCount);
+
 		//Increment to the real data
 		i++;
 		//Create an array to keep track of the nodes we create, to avoid duplicates
@@ -220,7 +222,11 @@ public class Controller : MonoBehaviour {
 			//This file should't contain duplicates, so no check
 			CreateEdge(n[mi],n[mj]);
 
-			if(i%pauseCount==0) yield return null;
+			if(i%pauseCount==0)
+			{
+				Debug.Log(i/(lines.Length+0f));
+				yield return null;
+			}
 			//if(i>200) break;
 		}
 
@@ -229,24 +235,25 @@ public class Controller : MonoBehaviour {
 		//Arrange our nodes if relevant
 		//Are by default in positions corresponding to where they were first encountered in the matrix
 		if(initialPositionStyle==1){
-			//Square - 2D according to order of node creation
+			//Cube - Like square, but 3D
 			int dim = (int)Mathf.Pow(nodes.Count,1/3f);
 			float dx = .5f;
 			for(int j=0;j<nodes.Count;j++){
-				nodes[j].t.position = new Vector3(-dim*dx*.5f + (j%dim)*dx, -dim*dx*.5f+((j/dim)%dim)*dx,-dim*dx*.5f+((j/(dim*dim))%dim)*dx);
+				nodes[j].t.position = new Vector3(-dim*dx*1f + (j%dim)*dx, -dim*dx*1f+((j/dim)%dim)*dx,-dim*dx*1f+((j/(dim*dim))%dim)*dx);
 			}
 		}else if(initialPositionStyle==2){
-			//Cube - Like square, but 3D
+			//Square - 2D according to order of node creation
 			int dim = (int) Mathf.Sqrt(nodes.Count);
 			float dx = .5f;
 			for(int j=0;j<nodes.Count;j++){
-				nodes[j].t.position = new Vector3(-dim*dx*.5f + (j%dim)*dx, -dim*dx*.5f+((j/dim)%dim)*dx,0);
+				nodes[j].t.position = new Vector3(-dim*dx*1f + (j%dim)*dx, -dim*dx*1f+((j/dim)%dim)*dx,0);
 			}
 		}else if(initialPositionStyle==3)
 		{
 			//Sphere	- randomized positions in a sphereical shape
+			int dim = (int)Mathf.Pow(nodes.Count,1/3f);
 			for(int j=0;j<nodes.Count;j++){
-				nodes[j].t.position = Random.onUnitSphere*Random.Range(.25f,1f);
+				nodes[j].t.position = Random.onUnitSphere*Random.Range(.25f,1f+dim);
 			}
 		}else if(initialPositionStyle==0)
 		{
@@ -295,6 +302,7 @@ public class Controller : MonoBehaviour {
 		Node n1, n2;
 		List<int> addedNodeIDs = new List<int>();
 		List<int> addedNodeMegas = new List<int>();
+		int calcCount=0;
 
 		//O(log2n) loop through all nodes
 		//Compare their neighbors, via edges
@@ -317,7 +325,7 @@ public class Controller : MonoBehaviour {
 						//If one node has a neighbor that the other node doesn't have, and it isn't the other node
 						//They don't belong together!!
 						if( (n1.neighbors[k]!=n2.index && !n2.neighbors.Contains(n1.neighbors[k])) ||
-						(n2.neighbors[k]!=n1.index && !n1.neighbors.Contains(n2.neighbors[k])) )
+						( k<n2.neighbors.Count && (n2.neighbors[k]!=n1.index && !n1.neighbors.Contains(n2.neighbors[k])) ) )
 						{
 							similar = false;
 							break;
@@ -365,8 +373,16 @@ public class Controller : MonoBehaviour {
 						}
 					}
 				}
+				calcCount++;
+				if(calcCount%20000==0)
+				{
+					Debug.Log(i/(nodes.Count+0f));
+					yield return null;
+				}
 			}
 		}
+
+		Debug.Log("Added "+megas.Count+" MegaNodes");
 
 		/*
 			Loop through all MegaNodes
@@ -393,7 +409,7 @@ public class Controller : MonoBehaviour {
 			//Set up simulating mega node
 			megas[i].BeginSim();
 		}
-		Debug.Log("Added "+megas.Count+" MegaNodes");
+		Debug.Log("Added MegaNode edges. Simplification complete.");
 		yield break;
 	}
 
@@ -539,7 +555,7 @@ public class Controller : MonoBehaviour {
 				//If its below a threshhold, slow down, and if simplified, un-simplify
 				//Reset timeuntil and history check
 				dif/=difCount+0f;
-				Debug.Log(dif.magnitude);
+				//Debug.Log(dif.magnitude);
 				if(dif.magnitude<.05f*dt)
 				{
 					if(dt<.01f)
