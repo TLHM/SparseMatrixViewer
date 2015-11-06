@@ -16,6 +16,13 @@ During simulation, the mouse can be used to control the viewing angle (click and
 
 Hitting SpaceBar will stop and resume the simulation.
 
+Manual setting of the time step is recommended for many matrices, done through the unity inspector. Simply change the "dt" variable on the Controller object.
+
+# Known Issues
+
+- Simplification sometimes freezes.
+- It's quite slow.
+
 # Details
 
 For detailed information on function, check the script files.
