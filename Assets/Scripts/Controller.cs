@@ -555,7 +555,7 @@ public class Controller : MonoBehaviour {
 				//If its below a threshhold, slow down, and if simplified, un-simplify
 				//Reset timeuntil and history check
 				dif/=difCount+0f;
-				Debug.Log(dif.magnitude);
+				//Debug.Log(dif.magnitude);
 				if(dif.magnitude<.05f*dt)
 				{
 					if(dt<.01f)

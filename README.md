@@ -16,6 +16,16 @@ During simulation, the mouse can be used to control the viewing angle (click and
 
 Hitting SpaceBar will stop and resume the simulation.
 
+# Methodology
+
+Graphs structure is determined by two simple rules:
+
+Nodes repel each other.
+
+Edges draw both nodes towards each other.
+
+The simplification algorithm is also fairly straight-forward. The basic idea is that mega nodes are created by grouping nodes with similar or identical neighbors (nodes that they are connected to via edges).
+
 # Details
 
 For detailed information on function, check the script files.
