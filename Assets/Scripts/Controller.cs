@@ -383,6 +383,7 @@ public class Controller : MonoBehaviour {
 		}
 
 		Debug.Log("Added "+megas.Count+" MegaNodes");
+		yield return null;
 
 		/*
 			Loop through all MegaNodes
@@ -397,14 +398,19 @@ public class Controller : MonoBehaviour {
 			for(int j=0;j<edgesToAdd.Length;j++)
 			{
 				Node nn = nodes[edgesToAdd[j]];
+				//If nn is not part of a mega node
 				if(nn.simulating)
 				{
 					CreateEdge( megas[i], nn );
 				}else
 				{
-					CreateEdge( megas[i], megas[nn.megaID] );
+					//Check if we've already linked to that mega or not
+					if(!megas[i].neighbors.Contains(nn.megaID))
+					{
+						CreateEdge( megas[i], megas[nn.megaID] );
+					}
 				}
-
+				if(j%2000==0) yield return null;
 			}
 			//Set up simulating mega node
 			megas[i].BeginSim();
@@ -607,6 +613,9 @@ public class Controller : MonoBehaviour {
 		@param n2 Second node this edge should connect to. Can be a Mega.
 	*/
 	void CreateEdge(Node n1, Node n2){
+		//Make sure it's not an edge to itself
+		if(n1==n2) return;
+
 		Edge e = (Instantiate(edgeFab) as Transform).GetComponent<Edge>();
 		e.n1=n1;
 		e.n2=n2;

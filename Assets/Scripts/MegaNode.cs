@@ -83,9 +83,10 @@ public class MegaNode : Node
 		{
 			for(int j=0; j<containedNodes[i].neighbors.Count; j++)
 			{
-				if(!containedIDs.Contains(containedNodes[i].neighbors[j]))
+				int edgeCheck = containedNodes[i].neighbors[j];
+				if(!containedIDs.Contains(edgeCheck) && !edgesNeeded.Contains(edgeCheck))
 				{
-					edgesNeeded.Add(containedNodes[i].neighbors[j]);
+					edgesNeeded.Add(edgeCheck);
 				}
 			}
 		}
