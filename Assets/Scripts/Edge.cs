@@ -9,7 +9,7 @@ public class Edge : MonoBehaviour {
 	public static float idealLen;		/**< Ideal length for the edges*/
 	public static float idealLen2; 	/**< Ideal length for the edges squared*/
 	public static Gradient g;			/**< Gradient that colors our edges */
-	public static int colorFactor;	/**< Shifts the scaling of how our gradient is mapped to edge lengths */
+	public static float colorFactor;	/**< Shifts the scaling of how our gradient is mapped to edge lengths */
 	public static float avLen;			/**< Last calculated average edge length. Set in Controller. */
 
 	public Node n1;	/**< First node that comprises this edge */

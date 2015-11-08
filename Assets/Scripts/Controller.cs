@@ -21,7 +21,7 @@ public class Controller : MonoBehaviour {
 
 	public string file;				/**< File name of the .mtx file in the Assets/Matrices folder we want. EG "qh882"*/
 	public float dt;					/**< Delta Time variable. Should being at around 1, and will automatically be reduced as the simulation continues. */
-	public int colorFactor;			/**< Multiplier that affects how the colors are maped to the gradient. Recommended value of 3 */
+	public float colorFactor;		/**< Multiplier that affects how the colors are mapped to the gradient. Recommended value of 3 */
 	public int initialPositionStyle;	/**< Defines distrubution of the nodes when first created. 0 = position in matrix, 1 = square, 2 = cube, 3 = randomized sphere */
 	public bool simplify;			/**< If true, the graph is simplified before beginning simulation. It will unsimplify during the simulation */
 	public float nodeFScale;		/**< Value that determines Node.forceScale during simulation. You can change it through the inspector during a simulation */
@@ -44,6 +44,10 @@ public class Controller : MonoBehaviour {
 	float acum, timeLeft, avTime;
 	int frames;
 	public UnityEngine.UI.Text FPS;
+
+	//Loading GUI
+	public UnityEngine.UI.Text loadingMessage;
+	public RectTransform loadingBar;
 
 	/**
 		For slowing down the simulation, and ending it
@@ -168,6 +172,8 @@ public class Controller : MonoBehaviour {
 		bgMat.SetColor("_Color",bgCols[1]);
 		edgeMat.SetColor("_FogColor", bgCols[1]);
 
+		loadingMessage.text = "Reading File";
+
 		//Read in our data file
 		string path = Application.dataPath+"/Matrices/"+file+".mtx";
 		string data = File.ReadAllText(path);
@@ -224,7 +230,7 @@ public class Controller : MonoBehaviour {
 
 			if(i%pauseCount==0)
 			{
-				Debug.Log(i/(lines.Length+0f));
+				loadingBar.localScale = new Vector3(i/(lines.Length+0f),1,1);
 				yield return null;
 			}
 			//if(i>200) break;
@@ -283,6 +289,8 @@ public class Controller : MonoBehaviour {
 		framesPerCheck = 50;
 		StartCoroutine(updateNodes());
 
+		loadingMessage.gameObject.SetActive(false);
+
 		yield return new WaitForSeconds(.5f);
 
 		//Flip the bool if we haven't and begin the actual simulating
@@ -298,6 +306,8 @@ public class Controller : MonoBehaviour {
 	*/
 	IEnumerator SimplifyGraph()
 	{
+		loadingMessage.text = "Calculating Mega Nodes";
+
 		megas = new List<MegaNode>();
 		Node n1, n2;
 		List<int> addedNodeIDs = new List<int>();
@@ -376,13 +386,14 @@ public class Controller : MonoBehaviour {
 				calcCount++;
 				if(calcCount%20000==0)
 				{
-					Debug.Log(i/(nodes.Count+0f));
+					loadingBar.localScale = new Vector3(i/(nodes.Count+0f),1,1);
 					yield return null;
 				}
 			}
 		}
 
 		Debug.Log("Added "+megas.Count+" MegaNodes");
+		loadingMessage.text = "Creating Mega Node Edges";
 		yield return null;
 
 		/*
@@ -410,7 +421,10 @@ public class Controller : MonoBehaviour {
 						CreateEdge( megas[i], megas[nn.megaID] );
 					}
 				}
-				if(j%2000==0) yield return null;
+				if(j%4000==0){
+					loadingBar.localScale = new Vector3(i/(megas.Count+0f),1,1);
+					yield return null;
+				}
 			}
 			//Set up simulating mega node
 			megas[i].BeginSim();
