@@ -85,10 +85,25 @@ public class Node : MonoBehaviour {
 		Actually moves the node using the velocity calculated with ApplyForce
 		Lowers velocity as well. This helps reduce degenerate behavior,
 		though it means the simulation takes longer.
+		@return Returns a Vector2. X value is the number of edges updated, Y value is their summed lengths.
 	*/
-	public void UpdatePos(){
+	public Vector2 UpdatePos(){
 		t.localPosition+=velocity*Time.deltaTime;
 		velocity*=.5f;
+
+		int edgeCount=0;
+		float totalDist=0;
+		for(int i=0;i<edges.Count;i++)
+		{
+			float d=edges[i].UpdateVis();
+			if(d!=0)
+			{
+				edgeCount++;
+				totalDist+=d;
+			}
+		}
+
+		return new Vector2(edgeCount,totalDist);
 	}
 
 	/**

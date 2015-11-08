@@ -57,8 +57,9 @@ public class Edge : MonoBehaviour {
 		//Update the line renderer visual
 		dir = n1.t.localPosition - n2.t.localPosition;
 		float mag = dir.magnitude;
-		lr.SetPosition(0,n1.t.position);
-		lr.SetPosition(1,n2.t.position);
+		t.localPosition = n2.t.localPosition;
+		lr.SetPosition(0,Vector3.zero);
+		lr.SetPosition(1,dir);
 
 		Color col = g.Evaluate(mag/(avLen*colorFactor));
 		lr.SetColors(col,col);

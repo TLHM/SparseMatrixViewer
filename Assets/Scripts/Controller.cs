@@ -106,7 +106,7 @@ public class Controller : MonoBehaviour {
 		cam.orthographicSize = Mathf.Clamp(cam.orthographicSize-scroll,2.5f,88f);
 
 		//Pause and resume updating of nodes (simulating physics on them)
-		if(Input.GetKeyDown(KeyCode.Space)){
+		if(Input.GetKeyDown(KeyCode.Space) && simulating){
 			if(!upNodes){
 				upNodes=true;
 			}else{
@@ -134,7 +134,8 @@ public class Controller : MonoBehaviour {
 			Shader.SetGlobalFloat("_Density",fogDensity);
 
 			//Update edges, and calculate the average edge length (which dictates coloring)
-			float totalDist=0;
+			//Moved to be a part of updateNodes
+			/*float totalDist=0;
 			int relevantEdgeCount=0;
 			for(int i=0;i<edges.Count;i++){
 				float d=edges[i].UpdateVis();
@@ -144,7 +145,7 @@ public class Controller : MonoBehaviour {
 					totalDist+=d;
 				}
 			}
-			Edge.avLen = totalDist/relevantEdgeCount;
+			Edge.avLen = totalDist/relevantEdgeCount;*/
 		}
 
 		//Calculates & displays the framerate and average frame time
@@ -454,6 +455,9 @@ public class Controller : MonoBehaviour {
 
 			framesUntilCheck--;
 
+			float totalDist=0;
+			int relevantEdgeCount=0;
+
 			//Calculate the force each node is feeling
 			for(int i=0;i<nodes.Count;i++){
 				n=nodes[i];
@@ -550,7 +554,10 @@ public class Controller : MonoBehaviour {
 			int difCount=0;
 			//Process regular nodes
 			for(int i=0;i<nodes.Count;i++){
-				nodes[i].UpdatePos();
+				Vector2 edgeInfo = nodes[i].UpdatePos();
+				relevantEdgeCount+=(int)edgeInfo.x;
+				totalDist+=edgeInfo.y;
+
 				if(framesUntilCheck<0 && nodes[i].simulating)
 				{
 					dif+=nodes[i].difFromHistory();
@@ -560,7 +567,10 @@ public class Controller : MonoBehaviour {
 			}
 			//Process mega nodes
 			for(int i=0;i<megas.Count;i++){
-				megas[i].UpdatePos();
+				Vector2 edgeInfo = megas[i].UpdatePos();
+				relevantEdgeCount+=(int)edgeInfo.x;
+				totalDist+=edgeInfo.y;
+
 				if(framesUntilCheck<0 && megas[i].simulating)
 				{
 					dif+=nodes[i].difFromHistory();
@@ -568,6 +578,9 @@ public class Controller : MonoBehaviour {
 					difCount++;
 				}
 			}
+
+			Edge.avLen = totalDist/relevantEdgeCount;
+
 			//Results of history check
 			if(framesUntilCheck<0)
 			{
@@ -581,6 +594,7 @@ public class Controller : MonoBehaviour {
 					if(dt<.01f)
 					{
 						upNodes=false;
+						simulating = false;
 						framesUntilCheck = 50;
 					}else
 					{
