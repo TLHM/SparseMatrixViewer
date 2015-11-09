@@ -19,9 +19,19 @@ public class Controller : MonoBehaviour {
 	public List<Edge> edges;		/**< Keeps track of all our edges */
 	public List<MegaNode> megas;	/**< Keeps track of all our mega nodes */
 
-	public string file;				/**< File name of the .mtx file in the Assets/Matrices folder we want. EG "qh882"*/
+	/**
+		File name of the matrix file we want to Load.
+		Should NOT include the file ending (.mtx / .mtxs)
+		For .mtx files, file name will be relative to Assets/Matrices
+		For .mtxs files, file name will be relative to Assets/SolvedMatrices
+		For a .mtxs file, the boolean solved should be true.
+		For normal .mtx files, solved should be false.
+		EG "qh882" or "sub2k/can_229"
+	*/
+	public string file;
+	public bool solved;				/**< Are we loading a solved .mtxs (true) or a .mtx (false)? */
 	public float dt;					/**< Delta Time variable. Should being at around 1, and will automatically be reduced as the simulation continues. */
-	public float colorFactor;		/**< Multiplier that affects how the colors are mapped to the gradient. Recommended value of 3 */
+	public float colorFactor;		/**< Multiplier that affects how the colors are mapped to the gradient. Recommended value of 2 */
 	public int initialPositionStyle;	/**< Defines distrubution of the nodes when first created. 0 = position in matrix, 1 = square, 2 = cube, 3 = randomized sphere */
 	public bool simplify;			/**< If true, the graph is simplified before beginning simulation. It will unsimplify during the simulation */
 	public float nodeFScale;		/**< Value that determines Node.forceScale during simulation. You can change it through the inspector during a simulation */
@@ -596,6 +606,7 @@ public class Controller : MonoBehaviour {
 						upNodes=false;
 						simulating = false;
 						framesUntilCheck = 50;
+						saveSolvedFile();
 					}else
 					{
 
@@ -620,6 +631,41 @@ public class Controller : MonoBehaviour {
 
 			yield return null;
 		}
+	}
+
+	/**
+		Saves a file that denotes the "solved" positions of the nodes
+		Name of the file will be the same as the unsolved, but with fileType .mtxs
+
+		Line 1 will have the number of nodes and edges
+		Next will be all the nodes: index ID position.x,position.y,position.z
+		Then the Edges: index1 index2
+
+	*/
+	void saveSolvedFile(){
+		string path = Application.dataPath+"/SolvedMatrices/"+file+".mtxs";
+		//If it's already been saved, don't bother saving it again
+		if(File.Exists(path))
+		{
+			return;
+		}
+
+		//Put together the file
+		string fileData = nodes.Count+" "+edges.Count;
+
+		for(int i=0;i<nodes.Count;i++)
+		{
+			Vector3 pos = nodes[i].t.localPosition;
+			fileData += "\n"+i+" "+nodes[i].id+" "+
+				pos.x.ToString("#.000")+","+pos.y.ToString("#.000")+","+pos.z.ToString("#.000");
+		}
+
+		for(int i=0;i<edges.Count;i++)
+		{
+			fileData += "\n"+edges[i].node1.index+" "+edges[i].node2.index;
+		}
+
+		File.WriteAllText(path, fileData);
 	}
 
 	/**
