@@ -185,127 +185,219 @@ public class Controller : MonoBehaviour {
 
 		loadingMessage.text = "Reading File";
 
-		//Read in our data file
-		string path = Application.dataPath+"/Matrices/"+file+".mtx";
-		string data = File.ReadAllText(path);
-		//Split it into lines
-		string[] lines = data.Split('\n');
-		//Begin going through lines
-		int i=0;
-		//Skip the comments, going straight to the data for now
-		while(lines[i].StartsWith("%")){
+		if(!solved)		//Loading a raw .mtx file, will have to solve it!
+		{
+
+			//Read in our data file
+			string path = Application.dataPath+"/Matrices/"+file+".mtx";
+			string data = File.ReadAllText(path);
+			//Split it into lines
+			string[] lines = data.Split('\n');
+			//Begin going through lines
+			int i=0;
+			//Skip the comments, going straight to the data for now
+			while(lines[i].StartsWith("%")){
+				i++;
+			}
+			//Grab the column/row count
+			//Square, so we only need one
+			int colCount = int.Parse(lines[i].Split(' ')[0]);
+			Vector3 posOffset = new Vector3(-.5f,-.5f,0)*colCount;
+			int identityCount=0;	//Tracks number of i==i edges
+
+			Debug.Log("Beginning read. Column count is "+colCount);
+
+			//Increment to the real data
 			i++;
-		}
-		//Grab the column/row count
-		//Square, so we only need one
-		int colCount = int.Parse(lines[i].Split(' ')[0]);
-		Vector3 posOffset = new Vector3(-.5f,-.5f,0)*colCount;
-		int identityCount=0;	//Tracks number of i==i edges
+			//Create an array to keep track of the nodes we create, to avoid duplicates
+			Node[] n = new Node[colCount];
+			//Go through each line
+			for(i=i;i<lines.Length;i++){
+				//Grab the col,row pair for this value
+				// -1 because the file format is 1-based not 0-based
+				string[] nums = lines[i].Split(' ');
+				//Make sure we have 2 numbers!
+				if(nums.Length<2) continue;
 
-		Debug.Log("Beginning read. Column count is "+colCount);
+				int mi = int.Parse(nums[0])-1;
+				int mj = int.Parse(nums[1])-1;
 
-		//Increment to the real data
-		i++;
-		//Create an array to keep track of the nodes we create, to avoid duplicates
-		Node[] n = new Node[colCount];
-		//Go through each line
-		for(i=i;i<lines.Length;i++){
-			//Grab the col,row pair for this value
-			// -1 because the file format is 1-based not 0-based
-			string[] nums = lines[i].Split(' ');
-			//Make sure we have 2 numbers!
-			if(nums.Length<2) continue;
+				//If the column and row are the same, ignore it
+				if(mi==mj)
+				{
+					identityCount++;
+					continue;
+				}
 
-			int mi = int.Parse(nums[0])-1;
-			int mj = int.Parse(nums[1])-1;
+				//Check if both nodes mi and mj exist
+				//If not, create the node
+				if(n[mi]==null){
+					n[mi] = CreateNode(mi, new Vector3(mj,mi,0) - posOffset);
+				}
+				if(n[mj]==null){
+					n[mj] = CreateNode(mj, new Vector3(mj,mi,0) - posOffset);
+				}
 
-			//If the column and row are the same, ignore it
-			if(mi==mj)
+				//Create an edge between mi and mj
+				//This file should't contain duplicates, so no check
+				CreateEdge(n[mi],n[mj]);
+
+				if(i%pauseCount==0)
+				{
+					loadingBar.localScale = new Vector3(i/(lines.Length+0f),1,1);
+					yield return null;
+				}
+				//if(i>200) break;
+			}
+
+			yield return null;
+
+			//Arrange our nodes if relevant
+			//Are by default in positions corresponding to where they were first encountered in the matrix
+			if(initialPositionStyle==1){
+				//Cube - Like square, but 3D
+				int dim = (int)Mathf.Pow(nodes.Count,1/3f);
+				float dx = .5f;
+				for(int j=0;j<nodes.Count;j++){
+					nodes[j].t.position = new Vector3(-dim*dx*1f + (j%dim)*dx, -dim*dx*1f+((j/dim)%dim)*dx,-dim*dx*1f+((j/(dim*dim))%dim)*dx);
+				}
+			}else if(initialPositionStyle==2){
+				//Square - 2D according to order of node creation
+				int dim = (int) Mathf.Sqrt(nodes.Count);
+				float dx = .5f;
+				for(int j=0;j<nodes.Count;j++){
+					nodes[j].t.position = new Vector3(-dim*dx*1f + (j%dim)*dx, -dim*dx*1f+((j/dim)%dim)*dx,0);
+				}
+			}else if(initialPositionStyle==3)
 			{
-				identityCount++;
-				continue;
-			}
-
-			//Check if both nodes mi and mj exist
-			//If not, create the node
-			if(n[mi]==null){
-				n[mi] = CreateNode(mi, new Vector3(mj,mi,0) - posOffset);
-			}
-			if(n[mj]==null){
-				n[mj] = CreateNode(mj, new Vector3(mj,mi,0) - posOffset);
-			}
-
-			//Create an edge between mi and mj
-			//This file should't contain duplicates, so no check
-			CreateEdge(n[mi],n[mj]);
-
-			if(i%pauseCount==0)
+				//Sphere	- randomized positions in a sphereical shape
+				int dim = (int)Mathf.Pow(nodes.Count,1/3f);
+				for(int j=0;j<nodes.Count;j++){
+					nodes[j].t.position = Random.onUnitSphere*Random.Range(.25f,1f+dim);
+				}
+			}else if(initialPositionStyle==0)
 			{
-				loadingBar.localScale = new Vector3(i/(lines.Length+0f),1,1);
-				yield return null;
+				//Default - Matrix positions
+				//Center the nodes in the screen
+				Vector3 avPos=Vector3.zero;
+				for(int j=0;j<nodes.Count;j++)
+				{
+					avPos+=nodes[j].t.position;
+				}
+				avPos*=1f/nodes.Count;
+
+				for(int j=0;j<nodes.Count;j++)
+				{
+					nodes[j].t.position-=avPos;
+				}
 			}
-			//if(i>200) break;
+
+			Debug.Log("Loaded "+nodes.Count+" nodes and "+edges.Count+" edges\n"+identityCount+" edges ignored (edges to self)");
+
+			//If we're simplifing, do it here
+			if(simplify) yield return StartCoroutine(SimplifyGraph());
+
+			//Prepare to simulate
+			simulating=true;
+			framesUntilCheck = 50;
+			framesPerCheck = 50;
+			StartCoroutine(updateNodes());
+
+			loadingMessage.gameObject.SetActive(false);
+
+			yield return new WaitForSeconds(.5f);
+
+			//Flip the bool if we haven't and begin the actual simulating
+			if(!upNodes) upNodes=true;
 		}
-
-		yield return null;
-
-		//Arrange our nodes if relevant
-		//Are by default in positions corresponding to where they were first encountered in the matrix
-		if(initialPositionStyle==1){
-			//Cube - Like square, but 3D
-			int dim = (int)Mathf.Pow(nodes.Count,1/3f);
-			float dx = .5f;
-			for(int j=0;j<nodes.Count;j++){
-				nodes[j].t.position = new Vector3(-dim*dx*1f + (j%dim)*dx, -dim*dx*1f+((j/dim)%dim)*dx,-dim*dx*1f+((j/(dim*dim))%dim)*dx);
-			}
-		}else if(initialPositionStyle==2){
-			//Square - 2D according to order of node creation
-			int dim = (int) Mathf.Sqrt(nodes.Count);
-			float dx = .5f;
-			for(int j=0;j<nodes.Count;j++){
-				nodes[j].t.position = new Vector3(-dim*dx*1f + (j%dim)*dx, -dim*dx*1f+((j/dim)%dim)*dx,0);
-			}
-		}else if(initialPositionStyle==3)
+		else
 		{
-			//Sphere	- randomized positions in a sphereical shape
-			int dim = (int)Mathf.Pow(nodes.Count,1/3f);
-			for(int j=0;j<nodes.Count;j++){
-				nodes[j].t.position = Random.onUnitSphere*Random.Range(.25f,1f+dim);
-			}
-		}else if(initialPositionStyle==0)
-		{
-			//Default - Matrix positions
-			//Center the nodes in the screen
-			Vector3 avPos=Vector3.zero;
-			for(int j=0;j<nodes.Count;j++)
-			{
-				avPos+=nodes[j].t.position;
-			}
-			avPos*=1f/nodes.Count;
+			//If we're loading an already solved file, do things a bit differently!
+			//Read in our data file
+			string path = Application.dataPath+"/SolvedMatrices/"+file+".mtxs";
+			string data = File.ReadAllText(path);
+			//Split it into lines
+			string[] lines = data.Split('\n');
+			int count = 0;
 
-			for(int j=0;j<nodes.Count;j++)
+			//Grab the node and edge count
+			string[] lineOne = lines[0].Split(' ');
+			int nodeCount = int.Parse(lineOne[0]);
+			int edgeCount = int.Parse(lineOne[1]);
+			count++;
+
+			loadingMessage.text = "Loading nodes.";
+			yield return null;
+
+			//Load in the Nodes
+			for(int i=count;i<count+nodeCount;i++)
 			{
-				nodes[j].t.position-=avPos;
+				string[] nums = lines[i].Split(' ');
+				int index = int.Parse(nums[0]);
+				int ID = int.Parse(nums[1]);
+				float posx = float.Parse(nums[2]);
+				float posy = float.Parse(nums[3]);
+				float posz = float.Parse(nums[4]);
+
+				Node n = CreateNode(ID,new Vector3(posx,posy,poz));
+
+				if((count+i)%pauseCount==0)
+				{
+					loadingBar.localScale = new Vector3(i/(nodeCount+0f),1,1);
+					yield return null;
+				}
 			}
+
+			loadingMessage.text = "Loading edges.";
+			yield return null;
+
+			count+=nodeCount;
+
+			//Load in the Edges
+			for(int i=count;i<=count+edgeCount;i++)
+			{
+				string[] nums = lines[i].Split(' ');
+				int node1 = int.Parse(nums[0]);
+				int node2 = int.Parse(nums[1]);
+
+				CreatEdge(nodes[node1],nodes[node2]);
+
+				if((count+i)%pauseCount==0)
+				{
+					loadingBar.localScale = new Vector3(i/(edgeCount+0f),1,1);
+					yield return null;
+				}
+			}
+
+			loadingMessage.text = "Updating Edges.";
+
+			//Update all the edges twice to calculate their colors and positions.
+			for(int j=0;j<2;j++)
+			{
+				float sumEdges=0;
+				int numEdges = 0;
+				for(int i=0;i<edges.Count;i++)
+				{
+					float d = edges[i].UpdateVis();
+					if(d>0)
+					{
+						numEdges++;
+						sumEdges+=d;
+					}
+
+					if(i%pauseCount==0)
+					{
+						loadingBar.localScale = new Vector3(i/(edgeCount+0f),1,1);
+						yield return null;
+					}
+				}
+
+				Edges.avLen = sumEdges/numEdges;
+			}
+
+			loadingMessage.gameObject.SetActive(false);
 		}
 
-		Debug.Log("Loaded "+nodes.Count+" nodes and "+edges.Count+" edges\n"+identityCount+" edges ignored (edges to self)");
-
-		//If we're simplifing, do it here
-		if(simplify) yield return StartCoroutine(SimplifyGraph());
-
-		//Prepare to simulate
-		simulating=true;
-		framesUntilCheck = 50;
-		framesPerCheck = 50;
-		StartCoroutine(updateNodes());
-
-		loadingMessage.gameObject.SetActive(false);
-
-		yield return new WaitForSeconds(.5f);
-
-		//Flip the bool if we haven't and begin the actual simulating
-		if(!upNodes) upNodes=true;
 
 		yield break;
 	}
@@ -638,7 +730,7 @@ public class Controller : MonoBehaviour {
 		Name of the file will be the same as the unsolved, but with fileType .mtxs
 
 		Line 1 will have the number of nodes and edges
-		Next will be all the nodes: index ID position.x,position.y,position.z
+		Next will be all the nodes: index ID position.x position.y position.z
 		Then the Edges: index1 index2
 
 	*/
@@ -655,13 +747,17 @@ public class Controller : MonoBehaviour {
 
 		for(int i=0;i<nodes.Count;i++)
 		{
+			if(!nodes[i].simulating) continue;
+
 			Vector3 pos = nodes[i].t.localPosition;
 			fileData += "\n"+i+" "+nodes[i].id+" "+
-				pos.x.ToString("#.000")+","+pos.y.ToString("#.000")+","+pos.z.ToString("#.000");
+				pos.x.ToString("#.000")+" "+pos.y.ToString("#.000")+" "+pos.z.ToString("#.000");
 		}
 
 		for(int i=0;i<edges.Count;i++)
 		{
+			if(edges[i].t.localPosition==Vector3.right*99999) continue;
+
 			fileData += "\n"+edges[i].node1.index+" "+edges[i].node2.index;
 		}
 
