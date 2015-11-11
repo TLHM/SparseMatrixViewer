@@ -18,6 +18,7 @@ public class Edge : MonoBehaviour {
 	public Transform t;			/**< The transform of this edge (at the midpoint) */
 	public LineRenderer lr;		/**< The visual line renderer for this edge. */
 	Vector3 dir;					/**< The vector from node2 to node1 */
+	Color curColor;				/**< The current color of the edge, as calculated in UpdateVis() */
 
 	/**
 		Returns a Vector3 that represents the force applied on a node
@@ -61,10 +62,79 @@ public class Edge : MonoBehaviour {
 		lr.SetPosition(0,Vector3.zero);
 		lr.SetPosition(1,dir);
 
-		Color col = g.Evaluate(mag/(avLen*colorFactor));
-		lr.SetColors(col,col);
+		curColor = g.Evaluate(mag/(avLen*colorFactor));
+		lr.SetColors(curColor,curColor);
 
 		return mag;
+	}
+
+	/**
+		Returns the current color of the edge in a hex string
+		@return Hex color of the edge in string format
+	*/
+	public string GetHexColor()
+	{
+		string hex = "#";
+		hex += IntToHex(Mathf.RoundToInt(curColor.r*255));
+		hex += IntToHex(Mathf.RoundToInt(curColor.g*255));
+		hex += IntToHex(Mathf.RoundToInt(curColor.b*255));
+
+		return hex;
+	}
+
+	/**
+		Returns an integer from 0-255 as a 2 digit hex string
+		@param i An integer between 0 and 255 (inclusive)
+	*/
+	string IntToHex(int i)
+	{
+		int tens = i/16;
+		int hex = i%16;
+
+		return HexDigit(tens)+HexDigit(hex);
+	}
+
+	/**
+		Converts a int from 0-15 to a hex string character
+		Defaults to "0" if the integer is out of bounds
+		@param i Integer between 0-15 (inclusive)
+	*/
+	string HexDigit(int i)
+	{
+		switch(i){
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+			case 8:
+			case 9:
+				return i.ToString();
+				break;
+			case 10:
+				return "a";
+				break;
+			case 11:
+				return "b";
+				break;
+			case 12:
+				return "c";
+				break;
+			case 13:
+				return "d";
+				break;
+			case 14:
+				return "e";
+				break;
+			case 15:
+				return "f";
+				break;
+		}
+
+		return "0";
 	}
 
 	/*Not working as hoped. Don't use. Kept around to remember the shameee.

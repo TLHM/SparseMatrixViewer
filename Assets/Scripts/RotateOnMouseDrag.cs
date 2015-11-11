@@ -15,6 +15,8 @@ public class RotateOnMouseDrag : MonoBehaviour {
 		Can rotate with arrow keys, in case mouse is being odd
 	*/
 	void Update () {
+		if(!Controller.loaded) return;
+
 		//Save info on mouse down
 		if(Input.GetMouseButtonDown(0)){
 			rot = t.rotation;

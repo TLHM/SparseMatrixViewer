@@ -30,6 +30,7 @@ public class Controller : MonoBehaviour {
 	*/
 	public string file;
 	public bool solved;				/**< Are we loading a solved .mtxs (true) or a .mtx (false)? */
+	public static bool loaded;		/**< Have we finished loading the file? (enables rotation) */
 	public float dt;					/**< Delta Time variable. Should being at around 1, and will automatically be reduced as the simulation continues. */
 	public float colorFactor;		/**< Multiplier that affects how the colors are mapped to the gradient. Recommended value of 2 */
 	public int initialPositionStyle;	/**< Defines distrubution of the nodes when first created. 0 = position in matrix, 1 = square, 2 = cube, 3 = randomized sphere */
@@ -74,6 +75,11 @@ public class Controller : MonoBehaviour {
 		Edge.avLen = iLen;
 		//Initialize the forceScale for nodes
 		Node.forceScale = 2;
+
+		//Initialize values updated when simulating in Update()
+		Node.forceScale=nodeFScale;
+		Edge.colorFactor = colorFactor;
+		Shader.SetGlobalFloat("_Density",fogDensity);
 
 		//Create color gradient for the edges
 		//Commented out gradient was creted in code
@@ -178,6 +184,8 @@ public class Controller : MonoBehaviour {
 		Begins the simulation
 	*/
 	IEnumerator Load(){
+		Controller.loaded=false;
+
 		//Set some BG color stuff before we begin
 		cam.backgroundColor = bgCols[0];
 		bgMat.SetColor("_Color",bgCols[1]);
@@ -309,6 +317,7 @@ public class Controller : MonoBehaviour {
 
 			//Flip the bool if we haven't and begin the actual simulating
 			if(!upNodes) upNodes=true;
+			Controller.loaded=true;
 		}
 		else
 		{
@@ -324,6 +333,10 @@ public class Controller : MonoBehaviour {
 			string[] lineOne = lines[0].Split(' ');
 			int nodeCount = int.Parse(lineOne[0]);
 			int edgeCount = int.Parse(lineOne[1]);
+			float avLen = float.Parse(lineOne[2]);
+
+			Edge.avLen = avLen;
+
 			count++;
 
 			loadingMessage.text = "Loading nodes.";
@@ -339,7 +352,7 @@ public class Controller : MonoBehaviour {
 				float posy = float.Parse(nums[3]);
 				float posz = float.Parse(nums[4]);
 
-				Node n = CreateNode(ID,new Vector3(posx,posy,poz));
+				Node n = CreateNode(ID,new Vector3(posx,posy,posz));
 
 				if((count+i)%pauseCount==0)
 				{
@@ -354,13 +367,13 @@ public class Controller : MonoBehaviour {
 			count+=nodeCount;
 
 			//Load in the Edges
-			for(int i=count;i<=count+edgeCount;i++)
+			for(int i=count;i<count+edgeCount;i++)
 			{
 				string[] nums = lines[i].Split(' ');
 				int node1 = int.Parse(nums[0]);
 				int node2 = int.Parse(nums[1]);
 
-				CreatEdge(nodes[node1],nodes[node2]);
+				CreateEdge(nodes[node1],nodes[node2]);
 
 				if((count+i)%pauseCount==0)
 				{
@@ -370,32 +383,23 @@ public class Controller : MonoBehaviour {
 			}
 
 			loadingMessage.text = "Updating Edges.";
+			yield return null;
 
-			//Update all the edges twice to calculate their colors and positions.
-			for(int j=0;j<2;j++)
+			//Update all the edges update their colors and positions.
+			for(int i=0;i<edges.Count;i++)
 			{
-				float sumEdges=0;
-				int numEdges = 0;
-				for(int i=0;i<edges.Count;i++)
+				edges[i].UpdateVis();
+
+				if(i%pauseCount==0)
 				{
-					float d = edges[i].UpdateVis();
-					if(d>0)
-					{
-						numEdges++;
-						sumEdges+=d;
-					}
-
-					if(i%pauseCount==0)
-					{
-						loadingBar.localScale = new Vector3(i/(edgeCount+0f),1,1);
-						yield return null;
-					}
+					loadingBar.localScale = new Vector3(i/(edgeCount+0f),1,1);
+					yield return null;
 				}
-
-				Edges.avLen = sumEdges/numEdges;
 			}
 
 			loadingMessage.gameObject.SetActive(false);
+
+			Controller.loaded=true;
 		}
 
 
@@ -698,7 +702,9 @@ public class Controller : MonoBehaviour {
 						upNodes=false;
 						simulating = false;
 						framesUntilCheck = 50;
-						saveSolvedFile();
+						yield return StartCoroutine(saveSolvedFile());
+						yield return null;
+						yield return StartCoroutine(saveJSON());
 					}else
 					{
 
@@ -711,7 +717,7 @@ public class Controller : MonoBehaviour {
 						}else
 						{
 							dt*=.5f;
-							framesUntilCheck = 50;
+							framesUntilCheck = framesPerCheck;
 							framesPerCheck -= 10;
 						}
 					}
@@ -729,22 +735,29 @@ public class Controller : MonoBehaviour {
 		Saves a file that denotes the "solved" positions of the nodes
 		Name of the file will be the same as the unsolved, but with fileType .mtxs
 
-		Line 1 will have the number of nodes and edges
+		Line 1 will have the number of nodes and edges and the average edge length (Edge.avLen)
 		Next will be all the nodes: index ID position.x position.y position.z
 		Then the Edges: index1 index2
 
 	*/
-	void saveSolvedFile(){
+	IEnumerator saveSolvedFile(){
 		string path = Application.dataPath+"/SolvedMatrices/"+file+".mtxs";
-		//If it's already been saved, don't bother saving it again
-		if(File.Exists(path))
-		{
-			return;
+
+		//Should create any missing directories
+		string[] directories = file.Split('/');
+		string dir = Application.dataPath+"/SolvedMatrices/";
+		for(int i=0;i<directories.Length-1;i++){
+			dir+="/"+directories[i];
 		}
+		Directory.CreateDirectory(dir);
 
 		//Put together the file
-		string fileData = nodes.Count+" "+edges.Count;
+		string fileData = "";
 
+		int nodeCount=0;
+		int count = 0;
+		loadingMessage.gameObject.SetActive(true);
+		loadingMessage.text = "Saving Nodes...";
 		for(int i=0;i<nodes.Count;i++)
 		{
 			if(!nodes[i].simulating) continue;
@@ -752,16 +765,99 @@ public class Controller : MonoBehaviour {
 			Vector3 pos = nodes[i].t.localPosition;
 			fileData += "\n"+i+" "+nodes[i].id+" "+
 				pos.x.ToString("#.000")+" "+pos.y.ToString("#.000")+" "+pos.z.ToString("#.000");
+			nodeCount++;
+
+			count++;
+			if(count%pauseCount==0)
+			{
+				loadingBar.localScale = new Vector3(i/(nodes.Count+0f),1,1);
+				yield return null;
+			}
 		}
 
+		loadingMessage.text = "Saving Edges...";
+		int edgeCount = 0;
 		for(int i=0;i<edges.Count;i++)
 		{
 			if(edges[i].t.localPosition==Vector3.right*99999) continue;
 
-			fileData += "\n"+edges[i].node1.index+" "+edges[i].node2.index;
+			fileData += "\n"+edges[i].n1.index+" "+edges[i].n2.index;
+			edgeCount++;
+
+			count++;
+			if(count%pauseCount==0)
+			{
+				loadingBar.localScale = new Vector3(i/(edges.Count+0f),1,1);
+				yield return null;
+			}
 		}
 
+		fileData = nodeCount+" "+edgeCount+" "+Edge.avLen.ToString("#.000") + fileData;
+
+		//Write out the file
 		File.WriteAllText(path, fileData);
+
+		Debug.Log(path+" Written.");
+		loadingMessage.gameObject.SetActive(false);
+	}
+
+	/**
+		Output JSON
+		Creates a JSON file, for display in the browser
+		Saves the two 3D positions for each edge, and the color
+		Doesn't do anything unless we have already finished simulating
+	*/
+	IEnumerator saveJSON()
+	{
+		//Make sure we've loaded and aren't simulating
+		if(!Controller.loaded || simulating) yield break;
+
+		int count = 0;
+		loadingMessage.gameObject.SetActive(true);
+		loadingMessage.text = "Writing JSON...";
+
+		string fileData = "{ edges: [";
+		for(int i=0;i<edges.Count;i++)
+		{
+			if(edges[i].t.localPosition == Vector3.right*99999) continue;
+
+			Vector3 p1 = edges[i].n1.t.localPosition;
+			Vector3 p2 = edges[i].n2.t.localPosition;
+			string col = edges[i].GetHexColor();
+
+			fileData +="\n\t{ "+
+				"\"positions\" : ["+
+				"\n\t\t{ \"x\" : "+p1.x.ToString("#.000")+", \"y\" : "+p1.y.ToString("#.000")+
+					", \"z\" : "+p1.z.ToString("#.000")+"},"+
+				"\n\t\t{ \"x\" : "+p2.x.ToString("#.000")+", \"y\" : "+p2.y.ToString("#.000")+
+					", \"z\" : "+p2.z.ToString("#.000")+"},"+
+				"\n\t],"+
+				"\n\t\"color\" : \'"+col+"\',\n\t},";
+
+			count++;
+			if(count%pauseCount==0)
+			{
+				loadingBar.localScale = new Vector3(i/(edges.Count+0f),1,1);
+				yield return null;
+			}
+		}
+
+		fileData+="\n]}";
+
+		string path = Application.dataPath+"/SolvedJSON/"+file+".json";
+
+		//Should create any missing directories
+		string[] directories = file.Split('/');
+		string dir = Application.dataPath+"/SolvedJSON/";
+		for(int i=0;i<directories.Length-1;i++){
+			dir+="/"+directories[i];
+		}
+		Directory.CreateDirectory(dir);
+
+		File.WriteAllText(path, fileData);
+
+		Debug.Log("Wrote JSON");
+		loadingMessage.gameObject.SetActive(false);
 	}
 
 	/**
@@ -801,9 +897,16 @@ public class Controller : MonoBehaviour {
 		@param id the row/column number from the matrix file
 		@param pos Position determined from location in the matrix
 	*/
-	Node CreateNode(int id, Vector2 pos){
+	Node CreateNode(int id, Vector3 pos){
 		Node n = (Instantiate(nodeFab) as Transform).GetComponent<Node>();
-		n.t.position = pos*.005f;//Random.onUnitSphere*Random.Range(.25f,1f);//Vector3.right*(id%24)*.1f+Vector3.up*(4-id/24)*.1f;
+		if(solved)
+		{
+			n.t.position = pos;
+		}
+		else
+		{
+			n.t.position = pos*.005f;
+		}
 		n.id = id;
 		n.mass=1;
 		n.index = nodes.Count;

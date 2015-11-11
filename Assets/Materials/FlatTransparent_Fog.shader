@@ -51,7 +51,8 @@
 		//fragment function
 		float4 frag(vOut i) : COLOR {
 			half fogPow = max(1/exp(pow((max(i.wpos.z,0))*_Density,1)),.15);
-			return fixed4(lerp( _FogColor, i.col*_Color, fogPow*2).xyz,fogPow);
+			fixed4 lerpCol = lerp( _FogColor, i.col*_Color, fogPow*2);
+			return fixed4(lerpCol.xyz,fogPow*lerpCol.a);
 			//return fixed4(_Color.xyz,fogPow);
 			//return lerp( _FogColor, _Color, fogPow);
 		}
