@@ -69,6 +69,18 @@ public class Edge : MonoBehaviour {
 	}
 
 	/**
+		Returns a string used in creating the JSON files, denoting curColor as 4 floats
+		@return SJON object string with the RGBA of curColor
+	*/
+	public string GetRGBA()
+	{
+		return "{ \"r\" : "+curColor.r.ToString("0.0000")+
+			", \"g\" : "+curColor.g.ToString("0.0000")+
+			", \"b\" : "+curColor.b.ToString("0.0000")+
+			", \"a\" : "+curColor.a.ToString("0.0000")+" }";
+	}
+
+	/**
 		Returns the current color of the edge in a hex string
 		@return Hex color of the edge in string format
 	*/

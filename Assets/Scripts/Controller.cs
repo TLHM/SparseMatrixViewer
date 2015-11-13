@@ -141,6 +141,10 @@ public class Controller : MonoBehaviour {
 				simplify = false;
 				StartCoroutine(Unsimplify());
 			}
+			else if(solved && loaded)
+			{
+				StartCoroutine(SaveJSON());
+			}
 		}
 
 		if(simulating){
@@ -702,9 +706,9 @@ public class Controller : MonoBehaviour {
 						upNodes=false;
 						simulating = false;
 						framesUntilCheck = 50;
-						yield return StartCoroutine(saveSolvedFile());
+						yield return StartCoroutine(SaveSolvedFile());
 						yield return null;
-						yield return StartCoroutine(saveJSON());
+						yield return StartCoroutine(SaveJSON());
 					}else
 					{
 
@@ -740,7 +744,7 @@ public class Controller : MonoBehaviour {
 		Then the Edges: index1 index2
 
 	*/
-	IEnumerator saveSolvedFile(){
+	IEnumerator SaveSolvedFile(){
 		string path = Application.dataPath+"/SolvedMatrices/"+file+".mtxs";
 
 		//Should create any missing directories
@@ -807,7 +811,7 @@ public class Controller : MonoBehaviour {
 		Saves the two 3D positions for each edge, and the color
 		Doesn't do anything unless we have already finished simulating
 	*/
-	IEnumerator saveJSON()
+	IEnumerator SaveJSON()
 	{
 		//Make sure we've loaded and aren't simulating
 		if(!Controller.loaded || simulating) yield break;
@@ -816,23 +820,23 @@ public class Controller : MonoBehaviour {
 		loadingMessage.gameObject.SetActive(true);
 		loadingMessage.text = "Writing JSON...";
 
-		string fileData = "{ edges: [";
+		string fileData = "{ \"edges\": [";
 		for(int i=0;i<edges.Count;i++)
 		{
 			if(edges[i].t.localPosition == Vector3.right*99999) continue;
 
-			Vector3 p1 = edges[i].n1.t.localPosition;
-			Vector3 p2 = edges[i].n2.t.localPosition;
-			string col = edges[i].GetHexColor();
-
+			Vector3 p1 = edges[i].n1.t.position;
+			Vector3 p2 = edges[i].n2.t.position;
+			string col = edges[i].GetRGBA();
+			if(i>0) fileData+=",";
 			fileData +="\n\t{ "+
 				"\"positions\" : ["+
-				"\n\t\t{ \"x\" : "+p1.x.ToString("#.000")+", \"y\" : "+p1.y.ToString("#.000")+
-					", \"z\" : "+p1.z.ToString("#.000")+"},"+
-				"\n\t\t{ \"x\" : "+p2.x.ToString("#.000")+", \"y\" : "+p2.y.ToString("#.000")+
-					", \"z\" : "+p2.z.ToString("#.000")+"},"+
+				"\n\t\t{ \"x\" : "+p1.x.ToString("0.000")+", \"y\" : "+p1.y.ToString("0.000")+
+					", \"z\" : "+p1.z.ToString("0.000")+"},"+
+				"\n\t\t{ \"x\" : "+p2.x.ToString("0.000")+", \"y\" : "+p2.y.ToString("0.000")+
+					", \"z\" : "+p2.z.ToString("0.000")+"}"+
 				"\n\t],"+
-				"\n\t\"color\" : \'"+col+"\',\n\t},";
+				"\n\t\"color\" : "+col+"\n\t}";
 
 			count++;
 			if(count%pauseCount==0)
