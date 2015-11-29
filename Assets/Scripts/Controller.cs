@@ -385,7 +385,7 @@ public class Controller : MonoBehaviour {
 					yield return null;
 				}
 			}
-
+			Debug.Log("Loaded "+edges.Count+" edges.");
 			loadingMessage.text = "Updating Edges.";
 			yield return null;
 
@@ -717,14 +717,15 @@ public class Controller : MonoBehaviour {
 							simplify = false;
 							StartCoroutine(Unsimplify());
 							framesUntilCheck = 150;
-							framesPerCheck -= 10;
+							if(framesPerCheck>10) framesPerCheck -= 10;
 						}else
 						{
 							dt*=.5f;
 							framesUntilCheck = framesPerCheck;
-							framesPerCheck -= 10;
+							if(framesPerCheck>10) framesPerCheck -= 10;
 						}
 					}
+
 				}else
 				{
 					framesUntilCheck = framesPerCheck;
@@ -820,34 +821,6 @@ public class Controller : MonoBehaviour {
 		loadingMessage.gameObject.SetActive(true);
 		loadingMessage.text = "Writing JSON...";
 
-		string fileData = "{ \"edges\": [";
-		for(int i=0;i<edges.Count;i++)
-		{
-			if(edges[i].t.localPosition == Vector3.right*99999) continue;
-
-			Vector3 p1 = edges[i].n1.t.position;
-			Vector3 p2 = edges[i].n2.t.position;
-			string col = edges[i].GetRGBA();
-			if(i>0) fileData+=",";
-			fileData +="\n\t{ "+
-				"\"positions\" : ["+
-				"\n\t\t{ \"x\" : "+p1.x.ToString("0.000")+", \"y\" : "+p1.y.ToString("0.000")+
-					", \"z\" : "+p1.z.ToString("0.000")+"},"+
-				"\n\t\t{ \"x\" : "+p2.x.ToString("0.000")+", \"y\" : "+p2.y.ToString("0.000")+
-					", \"z\" : "+p2.z.ToString("0.000")+"}"+
-				"\n\t],"+
-				"\n\t\"color\" : "+col+"\n\t}";
-
-			count++;
-			if(count%pauseCount==0)
-			{
-				loadingBar.localScale = new Vector3(i/(edges.Count+0f),1,1);
-				yield return null;
-			}
-		}
-
-		fileData+="\n]}";
-
 		string path = Application.dataPath+"/SolvedJSON/"+file+".json";
 
 		//Should create any missing directories
@@ -858,7 +831,40 @@ public class Controller : MonoBehaviour {
 		}
 		Directory.CreateDirectory(dir);
 
+		//Clear the file, start writing
+		string fileData = "{ \"edges\": [";
 		File.WriteAllText(path, fileData);
+		fileData = "";
+		for(int i=0;i<edges.Count;i++)
+		{
+			if(edges[i].t.localPosition == Vector3.right*99999) continue;
+
+			Vector3 p1 = edges[i].n1.t.position;
+			Vector3 p2 = edges[i].n2.t.position;
+			string col = edges[i].GetRGBA();
+			if(i>0) fileData+=",";
+
+			fileData +="\n\t{ "+
+				"\"positions\" : ["+
+				"\n\t\t{ \"x\" : "+p1.x.ToString("0.000")+", \"y\" : "+p1.y.ToString("0.000")+
+					", \"z\" : "+p1.z.ToString("0.000")+"},"+
+				"\n\t\t{ \"x\" : "+p2.x.ToString("0.000")+", \"y\" : "+p2.y.ToString("0.000")+
+					", \"z\" : "+p2.z.ToString("0.000")+"}"+
+				"\n\t],"+
+				"\n\t\"color\" : "+col+"\n\t}";
+
+			count++;
+			if(count%(pauseCount)==0)
+			{
+				loadingBar.localScale = new Vector3(i/(edges.Count+0f),1,1);
+				File.AppendAllText(path, fileData);
+				fileData = "";
+				yield return null;
+			}
+		}
+
+		fileData+="\n]}";
+		File.AppendAllText(path, fileData);
 
 		Debug.Log("Wrote JSON");
 		loadingMessage.gameObject.SetActive(false);
